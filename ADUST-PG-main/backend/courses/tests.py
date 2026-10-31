@@ -27,6 +27,7 @@ class TimetableAPITests(TestCase):
         self.client = APIClient()
         self.session = AcademicSession.objects.create(
             name="2025/2026", is_current=True,
+            department_fee="1000.00",
             start_date=date(2025, 10, 1), end_date=date(2026, 7, 31),
         )
         self.programme = Programme.objects.create(
@@ -176,6 +177,7 @@ class CourseMaterialAPITests(TestCase):
         self.client = APIClient()
         self.session = AcademicSession.objects.create(
             name="2025/2026", is_current=True,
+            department_fee="1000.00",
             start_date=date(2025, 10, 1), end_date=date(2026, 7, 31),
         )
         self.programme = Programme.objects.create(
@@ -449,6 +451,7 @@ class AdminAcademicCrudTests(APITestCase):
             "name": "2026/2027",
             "start_date": "2026-09-01",
             "end_date": "2027-07-31",
+            "department_fee": "1000.00",
             "is_current": False,
         }
         data.update(overrides)
@@ -468,9 +471,11 @@ class AdminAcademicCrudTests(APITestCase):
             "name": "2026/2027",
             "start_date": "2026-09-01",
             "end_date": "2027-07-31",
+            "department_fee": "1000.00",
             "is_current": True,
         }, format="json")
         self.assertEqual(session_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(session_response.data["department_fee"], "1000.00")
         session_id = session_response.data["id"]
         self.assertEqual(self.client.get(self.sessions_url).data[0]["name"], "2026/2027")
         self.assertEqual(
@@ -558,10 +563,28 @@ class AdminAcademicCrudTests(APITestCase):
     def test_invalid_required_duplicate_and_non_positive_inputs_are_rejected(self):
         self.assertEqual(self.client.post(self.sessions_url, {}, format="json").status_code,
                          status.HTTP_400_BAD_REQUEST)
+        missing_fee = self.client.post(self.sessions_url, {
+            "name": "2026/2027",
+            "start_date": "2026-09-01",
+            "end_date": "2027-07-31",
+        }, format="json")
+        self.assertEqual(missing_fee.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("department_fee", missing_fee.data["errors"])
+
+        for invalid_fee in ("not-a-number", "-1.00", "1.001"):
+            invalid_fee_response = self.client.post(self.sessions_url, {
+                "name": "2026/2027",
+                "start_date": "2026-09-01",
+                "end_date": "2027-07-31",
+                "department_fee": invalid_fee,
+            }, format="json")
+            self.assertEqual(invalid_fee_response.status_code, status.HTTP_400_BAD_REQUEST)
+
         invalid_dates = self.client.post(self.sessions_url, {
             "name": "2026/2027",
             "start_date": "2027-01-01",
             "end_date": "2026-12-31",
+            "department_fee": "1000.00",
         }, format="json")
         self.assertEqual(invalid_dates.status_code, status.HTTP_400_BAD_REQUEST)
         self.create_session()
@@ -569,8 +592,32 @@ class AdminAcademicCrudTests(APITestCase):
             "name": "2026/2027",
             "start_date": "2026-09-01",
             "end_date": "2027-07-31",
+            "department_fee": "1000.00",
         }, format="json")
         self.assertEqual(duplicate_session.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("name", duplicate_session.data["errors"])
+
+    def test_concurrent_duplicate_session_name_integrity_error_is_validation_response(self):
+        from django.db import IntegrityError
+        from unittest.mock import patch
+
+        for error_message in (
+            "UNIQUE constraint failed: courses_academicsession.name",
+            "UNIQUE constraint failed: index 'unique_academic_session_name_ci'",
+        ):
+            with self.subTest(error_message=error_message), patch(
+                "courses.views.AcademicSessionSerializer.save",
+                side_effect=IntegrityError(error_message),
+            ):
+                response = self.client.post(self.sessions_url, {
+                    "name": "2026/2027",
+                    "start_date": "2026-09-01",
+                    "end_date": "2027-07-31",
+                    "department_fee": "1000.00",
+                }, format="json")
+
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("name", response.data["errors"])
 
         self.assertEqual(self.client.post(self.programmes_url, {
             "name": "Invalid Duration",

@@ -131,6 +131,7 @@ export interface AcademicSession {
   id: number;
   name: string;
   is_current: boolean;
+  department_fee: string;
   start_date: string;
   end_date: string;
 }

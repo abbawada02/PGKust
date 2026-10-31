@@ -200,6 +200,7 @@ class AdminAccountListTests(APITestCase):
         student.save()
         session = AcademicSession.objects.create(
             name='2025/2026',
+            department_fee='1000.00',
             start_date='2025-09-01',
             end_date='2026-07-31',
             is_current=True,

@@ -1,5 +1,8 @@
+from decimal import Decimal
+
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models.functions import Lower
 from django.utils.translation import gettext_lazy as _
 from accounts.models import StudentProfile, LecturerProfile
 
@@ -7,11 +10,17 @@ from accounts.models import StudentProfile, LecturerProfile
 class AcademicSession(models.Model):
     name = models.CharField(max_length=20, unique=True, help_text='e.g. 2024/2025')
     is_current = models.BooleanField(default=False)
+    department_fee = models.DecimalField(
+        max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))]
+    )
     start_date = models.DateField()
     end_date = models.DateField()
 
     class Meta:
         ordering = ['-start_date']
+        constraints = [
+            models.UniqueConstraint(Lower('name'), name='unique_academic_session_name_ci'),
+        ]
 
     def __str__(self):
         return self.name

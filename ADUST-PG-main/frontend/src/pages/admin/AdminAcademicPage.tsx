@@ -18,7 +18,9 @@ const SECTION_LABELS: Record<Section, string> = {
   courses: "Courses",
 };
 
-const emptySession = () => ({ name: "", start_date: "", end_date: "", is_current: false });
+const emptySession = () => ({
+  name: "", start_date: "", end_date: "", department_fee: "", is_current: false,
+});
 const emptyProgramme = () => ({
   name: "", programme_type: "MSC" as ProgrammeType, duration_years: "2", description: "",
 });
@@ -28,16 +30,28 @@ const emptyCourse = () => ({
 });
 
 function getErrorMessage(error: unknown): string {
-  const data = (error as { response?: { data?: unknown } }).response?.data;
-  if (data === undefined) return "Request failed. Please try again.";
-  if (typeof data === "string") return data;
+  const responseData = (error as { response?: { data?: unknown } }).response?.data;
+  if (responseData === undefined) return "Request failed. Please try again.";
+  if (typeof responseData === "string") return responseData;
+
+  const data = responseData && typeof responseData === "object" && "errors" in responseData
+    ? (responseData as { errors: unknown }).errors
+    : responseData;
+  const formatMessages = (value: unknown): string => {
+    if (Array.isArray(value)) return value.map(formatMessages).filter(Boolean).join(", ");
+    if (value && typeof value === "object") {
+      return Object.entries(value).map(([field, nested]) => `${field}: ${formatMessages(nested)}`).join(" | ");
+    }
+    return String(value);
+  };
+
   if (data && typeof data === "object") {
     return Object.entries(data).map(([field, value]) => {
-      const messages = Array.isArray(value) ? value.map(String).join(", ") : String(value);
+      const messages = formatMessages(value);
       return field === "detail" ? messages : `${field}: ${messages}`;
     }).join(" | ");
   }
-  return "Request failed. Please check the submitted information.";
+  return typeof data === "string" ? data : "Request failed. Please check the submitted information.";
 }
 
 export default function AdminAcademicPage() {
@@ -104,6 +118,7 @@ export default function AdminAcademicPage() {
       name: session.name,
       start_date: session.start_date,
       end_date: session.end_date,
+      department_fee: session.department_fee,
       is_current: session.is_current,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -232,15 +247,21 @@ export default function AdminAcademicPage() {
                 <input id="session-name" className="form-control" maxLength={20} placeholder="2026/2027"
                   value={sessionForm.name} onChange={(event) => setSessionForm({ ...sessionForm, name: event.target.value })} required />
               </div>
-              <div className="col-md-3">
+              <div className="col-md-2">
                 <label className="form-label" htmlFor="session-start">Start date</label>
                 <input id="session-start" className="form-control" type="date"
                   value={sessionForm.start_date} onChange={(event) => setSessionForm({ ...sessionForm, start_date: event.target.value })} required />
               </div>
-              <div className="col-md-3">
+              <div className="col-md-2">
                 <label className="form-label" htmlFor="session-end">End date</label>
                 <input id="session-end" className="form-control" type="date" min={sessionForm.start_date || undefined}
                   value={sessionForm.end_date} onChange={(event) => setSessionForm({ ...sessionForm, end_date: event.target.value })} required />
+              </div>
+              <div className="col-md-2">
+                <label className="form-label" htmlFor="session-fee">Department fee</label>
+                <input id="session-fee" className="form-control" type="number" min="0.01" step="0.01"
+                  value={sessionForm.department_fee}
+                  onChange={(event) => setSessionForm({ ...sessionForm, department_fee: event.target.value })} required />
               </div>
               <div className="col-md-2 form-check ms-2">
                 <input id="session-current" className="form-check-input" type="checkbox"
@@ -342,9 +363,9 @@ export default function AdminAcademicPage() {
           <div className="card-header bg-white fw-semibold">Academic Sessions <span className="badge bg-primary ms-2">{sessions.length}</span></div>
           {sessions.length === 0 ? <div className="card-body text-center text-muted py-5">No academic sessions yet.</div> :
             <div className="table-responsive"><table className="table table-hover align-middle mb-0">
-              <thead className="table-light"><tr><th>Session</th><th>Dates</th><th>Status</th><th /></tr></thead>
+              <thead className="table-light"><tr><th>Session</th><th>Dates</th><th>Department fee</th><th>Status</th><th /></tr></thead>
               <tbody>{sessions.map((item) => <tr key={item.id}>
-                <td>{item.name}</td><td>{item.start_date} – {item.end_date}</td>
+                <td>{item.name}</td><td>{item.start_date} – {item.end_date}</td><td>₦{item.department_fee}</td>
                 <td>{item.is_current ? <span className="badge bg-success">Current</span> : "—"}</td>
                 <td className="text-end text-nowrap">
                   <button className="btn btn-sm btn-outline-primary me-1" onClick={() => editSession(item)}>Edit</button>

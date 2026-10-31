@@ -1,7 +1,7 @@
 import os
 import logging
 from django.conf import settings
-from django.db import DatabaseError, transaction
+from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
 from django.http import FileResponse
 from rest_framework import status
@@ -328,6 +328,27 @@ class AdminAcademicDetailView(RetrieveUpdateDestroyAPIView):
 class AdminAcademicSessionListCreateView(AdminAcademicListCreateView):
     queryset = AcademicSession.objects.all()
     serializer_class = AcademicSessionSerializer
+
+    def perform_create(self, serializer):
+        try:
+            with transaction.atomic():
+                serializer.save()
+        except IntegrityError as exc:
+            cause = exc.__cause__
+            constraint_name = getattr(getattr(cause, "diag", None), "constraint_name", None)
+            error_message = str(exc).lower()
+            sqlite_name_conflict = "unique constraint failed" in error_message and (
+                "courses_academicsession.name" in error_message
+                or "unique_academic_session_name_ci" in error_message
+            )
+            if constraint_name in {
+                "courses_academicsession_name_key",
+                "unique_academic_session_name_ci",
+            } or sqlite_name_conflict:
+                raise ValidationError({
+                    "name": "An academic session with this name already exists."
+                }) from exc
+            raise
 
 
 class AdminAcademicSessionDetailView(AdminAcademicDetailView):

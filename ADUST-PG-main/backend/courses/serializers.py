@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 from .models import AcademicSession, Programme, Course, CourseAllocation, Timetable, Enrollment, CourseMaterial
 
@@ -5,7 +7,11 @@ from .models import AcademicSession, Programme, Course, CourseAllocation, Timeta
 class AcademicSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = AcademicSession
-        fields = ["id", "name", "is_current", "start_date", "end_date"]
+        fields = ["id", "name", "is_current", "department_fee", "start_date", "end_date"]
+
+    department_fee = serializers.DecimalField(
+        max_digits=10, decimal_places=2, min_value=Decimal("0.01")
+    )
 
     def validate_name(self, value):
         name = value.strip()

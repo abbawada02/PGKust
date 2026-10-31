@@ -27,7 +27,8 @@ class ResultWorkflowTests(TestCase):
 	def setUp(self):
 		self.factory = APIRequestFactory()
 		self.session = AcademicSession.objects.create(
-			name="2099/2100", start_date="2099-09-01", end_date="2100-08-31", is_current=True
+			name="2099/2100", department_fee="1000.00", start_date="2099-09-01",
+			end_date="2100-08-31", is_current=True
 		)
 		self.programme = Programme.objects.create(name="Computer Science", programme_type="MSC")
 		self.admin = CustomUser.objects.create_user(
@@ -162,7 +163,8 @@ class ResultWorkflowTests(TestCase):
 
 	def test_batch_creation_cannot_set_approval_status_or_metadata(self):
 		other_session = AcademicSession.objects.create(
-			name="2100/2101", start_date="2100-09-01", end_date="2101-08-31"
+			name="2100/2101", department_fee="1000.00",
+			start_date="2100-09-01", end_date="2101-08-31"
 		)
 		response = self.client.post(
 			reverse("results:batch_list"),
@@ -216,6 +218,7 @@ class ResultWorkflowTests(TestCase):
 				"name": "2100/2101",
 				"start_date": "2100-09-01",
 				"end_date": "2101-08-31",
+				"department_fee": "1000.00",
 				"is_current": True,
 			},
 			format="json",
@@ -253,7 +256,8 @@ class ResultWorkflowTests(TestCase):
 
 	def test_approving_one_session_does_not_publish_another_sessions_results(self):
 		other_session = AcademicSession.objects.create(
-			name="2100/2101", start_date="2100-09-01", end_date="2101-08-31"
+			name="2100/2101", department_fee="1000.00",
+			start_date="2100-09-01", end_date="2101-08-31"
 		)
 		other_course = Course.objects.create(
 			code="CSCOTHER", title="Other Session Course", credit_units=3,
@@ -292,7 +296,8 @@ class ResultWorkflowTests(TestCase):
 		self.assertEqual(self.approve().status_code, 200)
 
 		other_session = AcademicSession.objects.create(
-			name="2100/2101", start_date="2100-09-01", end_date="2101-08-31"
+			name="2100/2101", department_fee="1000.00",
+			start_date="2100-09-01", end_date="2101-08-31"
 		)
 		other_course = Course.objects.create(
 			code="CSCPENDING", title="Pending Course", credit_units=3,
@@ -391,7 +396,8 @@ class ResultWorkflowTests(TestCase):
 
 	def test_batch_progress_is_scoped_to_programme_session_and_semester(self):
 		other_session = AcademicSession.objects.create(
-			name="2100/2101", start_date="2100-09-01", end_date="2101-08-31"
+			name="2100/2101", department_fee="1000.00",
+			start_date="2100-09-01", end_date="2101-08-31"
 		)
 		other_programme = Programme.objects.create(name="Data Science", programme_type="PHD")
 		cases = [
